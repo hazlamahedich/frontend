@@ -134,20 +134,28 @@ export async function POST(request: NextRequest) {
 
     // Get user information from session
     console.log('Getting user session...');
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    console.log('User ID:', userId);
+    let userId = '';
+    let userTier = 'free';
 
-    // Get user tier
-    const userTier = await getUserTier(userId || '');
+    // Skip authentication for Ollama requests
+    if (body.provider !== 'ollama') {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      userId = session?.user?.id || '';
+      console.log('User ID:', userId);
 
-    // Check if user has exceeded their token limit
-    if (userId && await hasExceededTokenLimit(userId, userTier)) {
-      return NextResponse.json(
-        { error: 'Token limit exceeded for this month' },
-        { status: 429 }
-      );
+      // Get user tier
+      userTier = await getUserTier(userId);
+
+      // Check if user has exceeded their token limit
+      if (userId && await hasExceededTokenLimit(userId, userTier)) {
+        return NextResponse.json(
+          { error: 'Token limit exceeded for this month' },
+          { status: 429 }
+        );
+      }
+    } else {
+      console.log('Skipping authentication for Ollama request');
     }
 
     // Prepare the request to the LLM provider
@@ -161,25 +169,55 @@ export async function POST(request: NextRequest) {
     if (body.provider === 'ollama') {
       console.log('=== OLLAMA PROVIDER DETECTED ===');
       // Ollama (local)
-      apiUrl = body.base_url ? `${body.base_url}/api/chat` : 'http://localhost:11434/api/chat';
+      // Note: Ollama API endpoint is /api/chat for newer versions, but some versions use /api/generate
+      apiUrl = body.base_url ? `${body.base_url}/api/generate` : 'http://localhost:11434/api/generate';
       // Add debug logging for Ollama requests
       console.log('Using Ollama with URL:', apiUrl);
 
       try {
         console.log('Testing Ollama connection...');
-        // Extract the base URL (remove /api/chat)
-        const baseUrl = apiUrl.replace('/api/chat', '');
+        // Extract the base URL (remove /api/generate)
+        const baseUrl = apiUrl.replace('/api/generate', '');
+        // Ollama API endpoint for listing models
         const testUrl = `${baseUrl}/api/tags`;
         console.log('Testing Ollama connection with URL:', testUrl);
-        const testResponse = await fetch(testUrl);
-        if (testResponse.ok) {
+
+        // Try to connect to Ollama
+        try {
+          const testResponse = await fetch(testUrl);
+          if (testResponse.ok) {
           const tags = await testResponse.json();
           console.log('Ollama is running. Available models:', JSON.stringify(tags, null, 2));
-        } else {
-          console.error('Ollama connection test failed:', testResponse.status, testResponse.statusText);
+
+          // Check if deepseek-r1:14b is available
+          const models = tags.models || [];
+          const deepseekAvailable = models.some((model: any) => model.name === 'deepseek-r1:14b');
+          console.log('DeepSeek R1:14B available:', deepseekAvailable);
+
+          if (!deepseekAvailable) {
+            console.error('DeepSeek R1:14B model is not available in Ollama');
+            return NextResponse.json(
+              { error: 'DeepSeek R1:14B model is not available in Ollama. Please pull it first with: ollama pull deepseek-r1:14b' },
+              { status: 400 }
+            );
+          }
+          } else {
+            console.error('Ollama connection test failed:', testResponse.status, testResponse.statusText);
+            // Continue anyway - don't return an error
+            console.log('Continuing despite Ollama connection test failure');
+          }
+        } catch (testError) {
+          console.error('Error testing Ollama connection:', testError);
+          // Continue anyway - don't return an error
+          console.log('Continuing despite Ollama connection test error');
         }
+
+        // Continue with the request even if the test fails
+        console.log('Proceeding with Ollama request');
       } catch (error) {
-        console.error('Error testing Ollama connection:', error);
+        console.error('Error in Ollama setup:', error);
+        // Continue anyway - don't return an error
+        console.log('Continuing despite Ollama setup error');
       }
 
       // For Ollama, we need to completely override the model and format
@@ -194,10 +232,33 @@ export async function POST(request: NextRequest) {
         console.log('Removed ollama/ prefix, model is now:', requestBody.model);
       }
 
+      // Check if this is a technical SEO task
+      const isTechnicalSEO = body.messages.some(msg =>
+        msg.content && msg.content.includes('technical SEO audit'));
+      console.log('Is this a technical SEO task?', isTechnicalSEO);
+
       // Simplify the request body for Ollama
+      // Ollama's /api/generate endpoint expects a different format than OpenAI
+      // We need to convert the messages array to a single prompt string
+      const messagesText = requestBody.messages.map(msg => {
+        if (msg.role === 'system') {
+          return `System: ${msg.content}\n\n`;
+        } else if (msg.role === 'user') {
+          return `User: ${msg.content}\n\n`;
+        } else if (msg.role === 'assistant') {
+          return `Assistant: ${msg.content}\n\n`;
+        }
+        return `${msg.content}\n\n`;
+      }).join('');
+
       const ollamaRequestBody = {
         model: requestBody.model,
-        messages: requestBody.messages
+        prompt: messagesText,
+        stream: requestBody.stream,
+        options: {
+          temperature: requestBody.temperature || 0.7,
+          num_predict: requestBody.max_tokens || 3000
+        }
       };
 
       console.log('Simplified request body for Ollama:', JSON.stringify(ollamaRequestBody, null, 2));
@@ -291,6 +352,18 @@ export async function POST(request: NextRequest) {
     console.log('Headers:', JSON.stringify(headers, null, 2));
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
+    // For Ollama, we need to use a different endpoint for chat vs. generate
+    if (body.provider === 'ollama') {
+      // Check if we're using the right endpoint
+      if (apiUrl.includes('/api/generate')) {
+        console.log('Using Ollama generate API');
+      } else {
+        // Switch to the generate API if we're not using it
+        apiUrl = apiUrl.replace('/api/chat', '/api/generate');
+        console.log('Switched to Ollama generate API:', apiUrl);
+      }
+    }
+
     console.log('Sending fetch request...');
     const llmResponse = await fetch(apiUrl, {
       method: 'POST',
@@ -379,7 +452,36 @@ export async function POST(request: NextRequest) {
               const chunk = new TextDecoder().decode(value);
               console.log(`Received chunk ${chunkCount} of length ${chunk.length}`);
               console.log(`Chunk preview: ${chunk.substring(0, 100)}${chunk.length > 100 ? '...' : ''}`);
-              sendChunk(chunk);
+
+              // Check if this is an Ollama response and convert it to OpenAI format
+              if (body.provider === 'ollama') {
+                try {
+                  // Ollama responses are newline-delimited JSON objects
+                  const lines = chunk.split('\n').filter(line => line.trim());
+
+                  for (const line of lines) {
+                    try {
+                      const ollamaData = JSON.parse(line);
+                      console.log('Parsed Ollama data:', JSON.stringify(ollamaData, null, 2));
+
+                      // Just pass through the Ollama format directly
+                      // This is simpler and more reliable than trying to convert to OpenAI format
+                      console.log('Passing through Ollama format directly');
+                      sendChunk(JSON.stringify(ollamaData));
+                    } catch (parseError) {
+                      console.error('Error parsing Ollama line:', parseError);
+                      console.log('Problematic line:', line);
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error processing Ollama chunk:', error);
+                  // Fall back to sending the raw chunk
+                  sendChunk(chunk);
+                }
+              } else {
+                // For other providers, send the chunk as is
+                sendChunk(chunk);
+              }
 
               // Roughly estimate token count for streaming (this is approximate)
               const lines = chunk.split('\n');

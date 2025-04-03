@@ -99,7 +99,21 @@ export function useLiteLLM(options: UseLiteLLMOptions = {}) {
             onChunk(chunk);
           }
 
-          const content = chunk.choices[0]?.delta?.content || '';
+          // Handle different response formats
+          let content = '';
+
+          // Check if this is an Ollama response
+          if (chunk.response !== undefined) {
+            // Direct Ollama format
+            content = chunk.response || '';
+            console.log('Detected direct Ollama format, content:', content);
+          } else if (chunk.choices && chunk.choices[0]) {
+            // OpenAI format
+            content = chunk.choices[0]?.delta?.content || '';
+            console.log('Detected OpenAI format, content:', content);
+          } else {
+            console.log('Unknown chunk format:', JSON.stringify(chunk, null, 2));
+          }
           console.log('Content from chunk:', content);
           setStreamingOutput((prev) => prev + content);
         }

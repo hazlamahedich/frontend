@@ -90,6 +90,8 @@ export class LiteLLMService {
     const requestBody: any = {
       messages,
       model: model.id,
+      provider: model.provider,
+      base_url: model.baseUrl,
       temperature: options.temperature ?? 0.7,
       max_tokens: options.max_tokens ?? model.maxOutputTokens,
       top_p: options.top_p ?? 1,
@@ -98,6 +100,13 @@ export class LiteLLMService {
       stream: false,
       stop: options.stop,
     };
+
+    // If using Ollama, make sure to set the provider explicitly
+    if (model.provider === 'ollama') {
+      console.log('Using Ollama provider with model:', model.id);
+      requestBody.provider = 'ollama';
+      requestBody.base_url = model.baseUrl || 'http://localhost:11434';
+    }
 
     // Add provider-specific configurations
     if (model.provider === ModelProvider.OLLAMA) {
@@ -146,6 +155,8 @@ export class LiteLLMService {
     const requestBody: any = {
       messages,
       model: model.id,
+      provider: model.provider,
+      base_url: model.baseUrl,
       temperature: options.temperature ?? 0.7,
       max_tokens: options.max_tokens ?? model.maxOutputTokens,
       top_p: options.top_p ?? 1,
@@ -154,6 +165,13 @@ export class LiteLLMService {
       stream: true,
       stop: options.stop,
     };
+
+    // If using Ollama, make sure to set the provider explicitly
+    if (model.provider === 'ollama') {
+      console.log('Using Ollama provider with model:', model.id);
+      requestBody.provider = 'ollama';
+      requestBody.base_url = model.baseUrl || 'http://localhost:11434';
+    }
 
     // Add provider-specific configurations
     if (model.provider === ModelProvider.OLLAMA) {
