@@ -3,14 +3,15 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { 
-  ModelProvider, 
-  ModelProviderType, 
-  ModelHosting, 
+import {
+  ModelProvider,
+  ModelProviderType,
+  ModelHosting,
   ModelHostingType,
   ModelTierType,
   AVAILABLE_MODELS
 } from '@/lib/ai/litellm-config';
+import AITestComponent from './ai-test-component';
 
 interface CustomModel {
   id: string;
@@ -37,21 +38,21 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
   const [preferredHosting, setPreferredHosting] = useState<ModelHostingType>(initialSettings.preferred_hosting);
   const [apiKeys, setApiKeys] = useState<Record<string, string>>(initialSettings.api_keys || {});
   const [customModels, setCustomModels] = useState<CustomModel[]>(initialSettings.custom_models || []);
-  
+
   const [newCustomModel, setNewCustomModel] = useState<CustomModel>({
     id: '',
     name: '',
     provider: ModelProvider.CUSTOM,
     baseUrl: '',
   });
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  
+
   const router = useRouter();
   const supabase = createClient();
-  
+
   // Get unique API key names from available models
   const apiKeyNames = Array.from(
     new Set(
@@ -60,7 +61,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
         .map(model => model.apiKeyName!)
     )
   );
-  
+
   // Get available providers based on user tier
   const availableProviders = Object.values(ModelProvider).filter(provider => {
     // Free tier users can only use OpenAI, Ollama, and Mistral
@@ -74,7 +75,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
     // Premium tier users can use all providers
     return true;
   });
-  
+
   // Handle API key change
   const handleApiKeyChange = (keyName: string, value: string) => {
     setApiKeys(prev => ({
@@ -82,7 +83,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
       [keyName]: value,
     }));
   };
-  
+
   // Handle custom model field change
   const handleCustomModelChange = (field: keyof CustomModel, value: string) => {
     setNewCustomModel(prev => ({
@@ -90,14 +91,14 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
       [field]: value,
     }));
   };
-  
+
   // Add custom model
   const handleAddCustomModel = () => {
     if (!newCustomModel.id || !newCustomModel.name || !newCustomModel.baseUrl) {
       setError('Please fill in all fields for the custom model');
       return;
     }
-    
+
     setCustomModels(prev => [...prev, newCustomModel]);
     setNewCustomModel({
       id: '',
@@ -106,18 +107,18 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
       baseUrl: '',
     });
   };
-  
+
   // Remove custom model
   const handleRemoveCustomModel = (id: string) => {
     setCustomModels(prev => prev.filter(model => model.id !== id));
   };
-  
+
   // Save settings
   const handleSave = async () => {
     setIsLoading(true);
     setError(null);
     setSuccess(false);
-    
+
     try {
       const settings: ModelSettings = {
         preferred_provider: preferredProvider,
@@ -125,14 +126,14 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
         api_keys: apiKeys,
         custom_models: customModels,
       };
-      
+
       // Check if settings already exist
       const { data: existingSettings } = await supabase
         .from('user_model_settings')
         .select('id')
         .eq('user_id', userId)
         .single();
-      
+
       if (existingSettings) {
         // Update existing settings
         await supabase
@@ -148,7 +149,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
             ...settings,
           });
       }
-      
+
       setSuccess(true);
       router.refresh();
     } catch (err) {
@@ -158,7 +159,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
       setIsLoading(false);
     }
   };
-  
+
   return (
     <div className="space-y-6">
       {error && (
@@ -166,19 +167,19 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
           {error}
         </div>
       )}
-      
+
       {success && (
         <div className="p-4 text-sm text-green-700 bg-green-100 rounded-md">
           AI model settings saved successfully.
         </div>
       )}
-      
+
       <div>
         <h2 className="text-lg font-medium text-gray-900">Model Preferences</h2>
         <p className="mt-1 text-sm text-gray-500">
           Choose your preferred AI model provider and hosting type.
         </p>
-        
+
         <div className="grid grid-cols-1 gap-6 mt-4 sm:grid-cols-2">
           <div>
             <label
@@ -200,7 +201,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
               ))}
             </select>
           </div>
-          
+
           <div>
             <label
               htmlFor="preferredHosting"
@@ -223,13 +224,13 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
           </div>
         </div>
       </div>
-      
+
       <div className="pt-6 border-t border-gray-200">
         <h2 className="text-lg font-medium text-gray-900">API Keys</h2>
         <p className="mt-1 text-sm text-gray-500">
           Add your API keys for different model providers. These keys are securely stored and used to access the AI models.
         </p>
-        
+
         <div className="mt-4 space-y-4">
           {apiKeyNames.map((keyName) => (
             <div key={keyName}>
@@ -237,7 +238,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
                 htmlFor={keyName}
                 className="block text-sm font-medium text-gray-700"
               >
-                {keyName.replace('_API_KEY', '').charAt(0).toUpperCase() + 
+                {keyName.replace('_API_KEY', '').charAt(0).toUpperCase() +
                  keyName.replace('_API_KEY', '').slice(1).toLowerCase()} API Key
               </label>
               <input
@@ -252,17 +253,17 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
           ))}
         </div>
       </div>
-      
+
       {userTier === 'premium' && (
         <div className="pt-6 border-t border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">Custom Models</h2>
           <p className="mt-1 text-sm text-gray-500">
             Add custom models with their own endpoints. This feature is available for premium users only.
           </p>
-          
+
           <div className="p-4 mt-4 border border-gray-200 rounded-md">
             <h3 className="text-sm font-medium text-gray-700">Add New Custom Model</h3>
-            
+
             <div className="grid grid-cols-1 gap-4 mt-2 sm:grid-cols-2">
               <div>
                 <label
@@ -280,7 +281,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
                   onChange={(e) => handleCustomModelChange('id', e.target.value)}
                 />
               </div>
-              
+
               <div>
                 <label
                   htmlFor="modelName"
@@ -297,7 +298,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
                   onChange={(e) => handleCustomModelChange('name', e.target.value)}
                 />
               </div>
-              
+
               <div className="sm:col-span-2">
                 <label
                   htmlFor="baseUrl"
@@ -315,7 +316,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
                 />
               </div>
             </div>
-            
+
             <div className="mt-4">
               <button
                 type="button"
@@ -326,11 +327,11 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
               </button>
             </div>
           </div>
-          
+
           {customModels.length > 0 && (
             <div className="mt-4">
               <h3 className="text-sm font-medium text-gray-700">Your Custom Models</h3>
-              
+
               <ul className="mt-2 divide-y divide-gray-200 border border-gray-200 rounded-md">
                 {customModels.map((model) => (
                   <li key={model.id} className="flex items-center justify-between p-4">
@@ -353,7 +354,7 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
           )}
         </div>
       )}
-      
+
       <div className="flex items-center pt-6 border-t border-gray-200">
         <button
           type="button"
@@ -390,6 +391,14 @@ export default function AIModelSettings({ userId, userTier, initialSettings }: A
           )}
         </button>
       </div>
+
+      {/* AI Test Component */}
+      <AITestComponent
+        userTier={userTier}
+        preferredProvider={preferredProvider}
+        preferredHosting={preferredHosting}
+        apiKeys={apiKeys}
+      />
     </div>
   );
 }

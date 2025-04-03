@@ -1,4 +1,4 @@
-import { ModelConfig, TaskTypeValue, selectModelForTask, ModelTierType } from './litellm-config';
+import { ModelConfig, TaskTypeValue, selectModelForTask, ModelTierType, ModelHostingType, ModelProviderType, ModelProvider, ModelHosting } from './litellm-config';
 
 // Define the response structure from LiteLLM
 export interface LiteLLMResponse {
@@ -173,50 +173,135 @@ export class LiteLLMService {
       requestBody.api_key = this.apiKeys[model.apiKeyName];
     }
 
-    const response = await fetch(`${this.baseUrl}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Determine the correct URL based on the provider
+    let apiUrl = `${this.baseUrl}/chat`;
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to stream chat');
+    console.log('=== LITELLM SERVICE MAKING FETCH REQUEST ===');
+    console.log('Base URL:', this.baseUrl);
+    console.log('API URL:', apiUrl);
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('Response received. Status:', response.status, response.statusText);
+      console.log('Response headers:', JSON.stringify(Object.fromEntries([...response.headers.entries()]), null, 2));
+
+      if (!response.ok) {
+        console.log('Response not OK. Attempting to read error...');
+        try {
+          const errorText = await response.text();
+          console.error('Error response text:', errorText);
+
+          try {
+            const error = JSON.parse(errorText);
+            console.error('Parsed error:', error);
+            throw new Error(error.error || error.message || 'Failed to stream chat');
+          } catch (parseError) {
+            console.error('Failed to parse error response as JSON:', parseError);
+            throw new Error(`Failed to stream chat: ${errorText || response.statusText}`);
+          }
+        } catch (textError) {
+          console.error('Failed to read error response text:', textError);
+          throw new Error(`Failed to stream chat: ${response.statusText}`);
+        }
+      }
+    } catch (fetchError) {
+      console.error('Fetch error:', fetchError);
+      throw fetchError;
     }
 
     if (!response.body) {
+      console.error('Response body is null');
       throw new Error('Response body is null');
     }
 
+    console.log('Getting reader from response body...');
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    console.log('Reader and decoder set up');
 
     try {
+      console.log('Starting to read chunks...');
+      let chunkCount = 0;
       while (true) {
+        console.log(`Reading chunk ${++chunkCount}...`);
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('Reading complete (done=true)');
+          break;
+        }
 
-        buffer += decoder.decode(value, { stream: true });
+        const decodedChunk = decoder.decode(value, { stream: true });
+        console.log(`Received chunk ${chunkCount} of length ${decodedChunk.length}`);
+        console.log(`Chunk preview: ${decodedChunk.substring(0, 100)}${decodedChunk.length > 100 ? '...' : ''}`);
+
+        buffer += decodedChunk;
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
+        console.log(`Processing ${lines.length} lines from buffer`);
 
         for (const line of lines) {
-          if (line.trim() === '') continue;
-          if (line.trim() === 'data: [DONE]') continue;
+          console.log(`Processing line: ${line.substring(0, 100)}${line.length > 100 ? '...' : ''}`);
+          if (line.trim() === '') {
+            console.log('Skipping empty line');
+            continue;
+          }
+          if (line.trim() === 'data: [DONE]') {
+            console.log('Received [DONE] signal');
+            continue;
+          }
 
           try {
-            const data = JSON.parse(line.replace(/^data: /, ''));
-            onChunk(data);
+            console.log('Parsing JSON from line...');
+            const jsonStr = line.replace(/^data: /, '');
+            console.log(`JSON string: ${jsonStr.substring(0, 100)}${jsonStr.length > 100 ? '...' : ''}`);
+            const data = JSON.parse(jsonStr);
+
+            // Check if this is an Ollama response format and convert it to OpenAI format
+            if (data.model && data.message && !data.choices) {
+              console.log('Detected Ollama response format, converting to OpenAI format');
+              const convertedData = {
+                id: data.model,
+                object: 'chat.completion.chunk',
+                created: Date.now(),
+                model: data.model,
+                choices: [
+                  {
+                    index: 0,
+                    delta: {
+                      content: data.message.content || ''
+                    },
+                    finish_reason: data.done ? 'stop' : null
+                  }
+                ]
+              };
+              console.log('Converted data:', JSON.stringify(convertedData, null, 2));
+              onChunk(convertedData);
+            } else {
+              // Standard OpenAI format
+              onChunk(data);
+            }
           } catch (e) {
+            console.log('=== ERROR PARSING SSE CHUNK ===');
             console.error('Error parsing SSE chunk:', e);
+            console.log('Error details:', e instanceof Error ? e.stack : 'No stack trace available');
+            console.log('Problematic line:', line);
           }
         }
       }
     } catch (error) {
+      console.log('=== ERROR READING STREAM ===');
       console.error('Error reading stream:', error);
+      console.log('Error details:', error instanceof Error ? error.stack : 'No stack trace available');
       throw error;
     }
   }

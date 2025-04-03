@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { CreditCard, Key, User, Cpu } from 'lucide-react';
+import { CreditCard, Key, User, Cpu, BarChart } from 'lucide-react';
 
 export const metadata = {
   title: 'Settings | Surge SEO Platform',
@@ -156,6 +156,45 @@ export default async function SettingsPage() {
             </Link>
           </li>
 
+          <li>
+            <Link
+              href="/dashboard/settings/token-usage"
+              className="block hover:bg-gray-50"
+            >
+              <div className="px-4 py-4 sm:px-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <BarChart className="w-5 h-5 mr-3 text-gray-400" />
+                    <p className="text-sm font-medium text-primary-600 truncate">
+                      Token Usage
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 ml-2">
+                    <svg
+                      className="w-5 h-5 text-gray-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="mt-2 sm:flex sm:justify-between">
+                  <div className="sm:flex">
+                    <p className="flex items-center text-sm text-gray-500">
+                      Track your AI token usage and costs
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </li>
           <li>
             <Link
               href="/dashboard/settings/security"

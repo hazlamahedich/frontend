@@ -1,0 +1,86 @@
+/* Improved contrast for buttons and text */
+
+/* Increase contrast for primary buttons */
+.bg-primary {
+  background-color: oklch(0.55 0.2 240) !important; /* Darker blue for better contrast */
+}
+
+.hover\:bg-primary\/90:hover {
+  background-color: oklch(0.5 0.2 240) !important; /* Even darker on hover */
+}
+
+/* Increase contrast for secondary buttons */
+.bg-secondary {
+  background-color: oklch(0.6 0.18 280) !important; /* Darker purple for better contrast */
+}
+
+.hover\:bg-secondary\/90:hover {
+  background-color: oklch(0.55 0.18 280) !important; /* Even darker on hover */
+}
+
+/* Increase contrast for outline buttons */
+.border-input {
+  border-color: oklch(0.6 0 0) !important; /* Darker border */
+}
+
+/* Improve text contrast */
+.text-muted-foreground {
+  color: oklch(0.45 0 0) !important; /* Darker text for muted elements */
+}
+
+/* Improve contrast in dark mode */
+.dark .bg-primary {
+  background-color: oklch(0.65 0.22 240) !important; /* Brighter blue in dark mode */
+}
+
+.dark .bg-secondary {
+  background-color: oklch(0.7 0.2 280) !important; /* Brighter purple in dark mode */
+}
+
+.dark .text-muted-foreground {
+  color: oklch(0.8 0 0) !important; /* Brighter text for muted elements in dark mode */
+}
+
+/* Improve form input contrast */
+input, select, textarea {
+  border-color: oklch(0.6 0 0) !important; /* Darker border */
+  color: oklch(0.2 0 0) !important; /* Darker text */
+}
+
+.dark input, .dark select, .dark textarea {
+  border-color: oklch(0.7 0 0) !important; /* Brighter border in dark mode */
+  color: oklch(0.9 0 0) !important; /* Brighter text in dark mode */
+}
+
+/* Improve focus states */
+*:focus-visible {
+  outline: 2px solid oklch(0.5 0.2 240) !important; /* More visible focus outline */
+  outline-offset: 2px;
+}
+
+.dark *:focus-visible {
+  outline: 2px solid oklch(0.65 0.22 240) !important; /* More visible focus outline in dark mode */
+}
+
+/* Improve button text contrast */
+button {
+  font-weight: 500 !important; /* Medium font weight for better readability */
+}
+
+/* Improve link contrast */
+a {
+  color: oklch(0.5 0.2 240) !important; /* Darker blue for links */
+  text-decoration: underline;
+}
+
+.dark a {
+  color: oklch(0.7 0.22 240) !important; /* Brighter blue for links in dark mode */
+}
+
+/* Improve contrast for disabled elements */
+button:disabled, 
+input:disabled, 
+select:disabled, 
+textarea:disabled {
+  opacity: 0.6 !important; /* Increase opacity for better visibility */
+}

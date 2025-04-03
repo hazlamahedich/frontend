@@ -13,6 +13,11 @@ export const ModelProvider = {
   CUSTOM: 'custom',
 } as const;
 
+// Ensure ModelProvider is available globally for components
+if (typeof window !== 'undefined') {
+  (window as any).ModelProvider = ModelProvider;
+}
+
 export type ModelProviderType = typeof ModelProvider[keyof typeof ModelProvider];
 
 // Define model tiers for different use cases
@@ -283,8 +288,8 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
 
   // Ollama (Local) Models
   {
-    id: 'ollama/llama3',
-    name: 'Llama 3 (Ollama)',
+    id: 'ollama/llama3.2',
+    name: 'Llama 3.2 (Ollama)',
     provider: ModelProvider.OLLAMA,
     hosting: ModelHosting.LOCAL,
     baseUrl: 'http://localhost:11434',
@@ -299,14 +304,31 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     maxOutputTokens: 4096,
   },
   {
-    id: 'ollama/deepseek-coder',
-    name: 'DeepSeek Coder (Ollama)',
+    id: 'ollama/nezahatkorkmaz/deepseek-v3',
+    name: 'DeepSeek V3 (Ollama)',
     provider: ModelProvider.OLLAMA,
     hosting: ModelHosting.LOCAL,
     baseUrl: 'http://localhost:11434',
     tier: ModelTier.STANDARD,
     tasks: [
       TaskType.CONTENT_GENERATION,
+      TaskType.CLASSIFICATION,
+      TaskType.SUMMARIZATION,
+    ],
+    contextWindow: 16384,
+    costPer1kTokens: 0, // Free when run locally
+    maxOutputTokens: 4096,
+  },
+  {
+    id: 'ollama/deepseek-r1:14b',
+    name: 'DeepSeek R1:14B (Ollama)',
+    provider: ModelProvider.OLLAMA,
+    hosting: ModelHosting.LOCAL,
+    baseUrl: 'http://localhost:11434',
+    tier: ModelTier.STANDARD,
+    tasks: [
+      TaskType.CONTENT_GENERATION,
+      TaskType.TECHNICAL_SEO,
       TaskType.CLASSIFICATION,
       TaskType.SUMMARIZATION,
     ],

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { Bell, Search, Menu, X, User, LogOut, Settings } from 'lucide-react';
+import { ThemeToggle } from '../../components/ui/theme-toggle';
 
 export default function DashboardHeader() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -18,7 +19,7 @@ export default function DashboardHeader() {
   };
 
   return (
-    <header className="bg-white border-b">
+    <header className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
       <div className="flex items-center justify-between h-16 px-4 sm:px-6">
         <div className="flex items-center lg:hidden">
           <button
@@ -47,7 +48,7 @@ export default function DashboardHeader() {
                 <input
                   id="search"
                   name="search"
-                  className="block w-full py-2 pl-10 pr-3 text-sm bg-white border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  className="block w-full py-2 pl-10 pr-3 text-sm bg-white border border-gray-300 rounded-md placeholder-gray-500 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                   placeholder="Search..."
                   type="search"
                 />
@@ -56,10 +57,12 @@ export default function DashboardHeader() {
           </div>
         </div>
 
-        <div className="flex items-center">
+        <div className="flex items-center space-x-4">
+          <ThemeToggle />
+
           <button
             type="button"
-            className="p-1 text-gray-400 bg-white rounded-full hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="p-1 text-gray-400 bg-white rounded-full hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
           >
             <span className="sr-only">View notifications</span>
             <Bell size={24} className="w-6 h-6" />
@@ -69,7 +72,7 @@ export default function DashboardHeader() {
             <div>
               <button
                 type="button"
-                className="flex text-sm bg-white rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="flex text-sm bg-white rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700"
                 id="user-menu-button"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
               >
@@ -80,14 +83,14 @@ export default function DashboardHeader() {
 
             {isProfileOpen && (
               <div
-                className="absolute right-0 z-10 w-48 py-1 mt-2 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                className="absolute right-0 z-10 w-48 py-1 mt-2 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800 dark:ring-gray-700"
                 role="menu"
                 aria-orientation="vertical"
                 aria-labelledby="user-menu-button"
               >
                 <a
                   href="/dashboard/profile"
-                  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                   role="menuitem"
                 >
                   <User size={16} className="w-4 h-4 mr-2" />
@@ -95,7 +98,7 @@ export default function DashboardHeader() {
                 </a>
                 <a
                   href="/dashboard/settings"
-                  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                   role="menuitem"
                 >
                   <Settings size={16} className="w-4 h-4 mr-2" />
@@ -103,7 +106,7 @@ export default function DashboardHeader() {
                 </a>
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                   role="menuitem"
                 >
                   <LogOut size={16} className="w-4 h-4 mr-2" />

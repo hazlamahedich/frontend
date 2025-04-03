@@ -125,14 +125,19 @@ async function hasExceededTokenLimit(userId: string, tier: string): Promise<bool
 
 // Main handler for chat completions
 export async function POST(request: NextRequest) {
+  console.log('=== AI CHAT API CALLED ===');
   try {
+    console.log('Parsing request body...');
     // Get the request body
     const body: ChatCompletionRequest = await request.json();
+    console.log('Request body received:', JSON.stringify(body, null, 2));
 
     // Get user information from session
+    console.log('Getting user session...');
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
+    console.log('User ID:', userId);
 
     // Get user tier
     const userTier = await getUserTier(userId || '');
@@ -154,9 +159,52 @@ export async function POST(request: NextRequest) {
 
     // Handle different model providers
     if (body.provider === 'ollama') {
+      console.log('=== OLLAMA PROVIDER DETECTED ===');
       // Ollama (local)
-      apiUrl = body.base_url || 'http://localhost:11434/api/chat';
+      apiUrl = body.base_url ? `${body.base_url}/api/chat` : 'http://localhost:11434/api/chat';
+      // Add debug logging for Ollama requests
+      console.log('Using Ollama with URL:', apiUrl);
+
+      try {
+        console.log('Testing Ollama connection...');
+        // Extract the base URL (remove /api/chat)
+        const baseUrl = apiUrl.replace('/api/chat', '');
+        const testUrl = `${baseUrl}/api/tags`;
+        console.log('Testing Ollama connection with URL:', testUrl);
+        const testResponse = await fetch(testUrl);
+        if (testResponse.ok) {
+          const tags = await testResponse.json();
+          console.log('Ollama is running. Available models:', JSON.stringify(tags, null, 2));
+        } else {
+          console.error('Ollama connection test failed:', testResponse.status, testResponse.statusText);
+        }
+      } catch (error) {
+        console.error('Error testing Ollama connection:', error);
+      }
+
+      // For Ollama, we need to completely override the model and format
+      // Force it to use deepseek-r1:14b for all Ollama requests
+      console.log('Original model:', requestBody.model);
+      requestBody.model = 'deepseek-r1:14b';
+      console.log('Forced model to:', requestBody.model);
+
+      // Remove the provider-specific prefix if it exists
+      if (requestBody.model.startsWith('ollama/')) {
+        requestBody.model = requestBody.model.replace('ollama/', '');
+        console.log('Removed ollama/ prefix, model is now:', requestBody.model);
+      }
+
+      // Simplify the request body for Ollama
+      const ollamaRequestBody = {
+        model: requestBody.model,
+        messages: requestBody.messages
+      };
+
+      console.log('Simplified request body for Ollama:', JSON.stringify(ollamaRequestBody, null, 2));
+      requestBody = ollamaRequestBody;
+
       // Ollama doesn't need auth headers
+      console.log('Ollama setup complete')
     } else if (body.provider === 'together') {
       // Together.ai
       apiUrl = 'https://api.together.xyz/v1/chat/completions';
@@ -238,24 +286,66 @@ export async function POST(request: NextRequest) {
     delete requestBody.base_url;
 
     // Make the request to the LLM provider
+    console.log('=== MAKING REQUEST TO LLM PROVIDER ===');
+    console.log('API URL:', apiUrl);
+    console.log('Headers:', JSON.stringify(headers, null, 2));
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
+    console.log('Sending fetch request...');
     const llmResponse = await fetch(apiUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
     });
 
+    console.log('Response received. Status:', llmResponse.status, llmResponse.statusText);
+    console.log('Response headers:', JSON.stringify(Object.fromEntries([...llmResponse.headers.entries()]), null, 2));
+
     if (!llmResponse.ok) {
-      const errorData = await llmResponse.json();
-      return NextResponse.json(
-        { error: errorData.error?.message || 'Error from LLM provider' },
-        { status: llmResponse.status }
-      );
+      console.log('=== LLM RESPONSE ERROR ===');
+      console.log('Response not OK. Status:', llmResponse.status, llmResponse.statusText);
+      try {
+        // Try to get the error text first
+        console.log('Attempting to read error response text...');
+        const errorText = await llmResponse.text();
+        console.error('LLM provider error text:', errorText);
+
+        // Try to parse as JSON if possible
+        try {
+          console.log('Attempting to parse error text as JSON...');
+          const errorData = JSON.parse(errorText);
+          console.error('LLM provider error data:', errorData);
+          console.log('Returning JSON error response');
+          return NextResponse.json(
+            { error: errorData.error?.message || 'Error from LLM provider' },
+            { status: llmResponse.status }
+          );
+        } catch (jsonError) {
+          // If it's not valid JSON, return the text
+          console.error('Failed to parse error as JSON:', jsonError);
+          console.log('Returning text error response');
+          return NextResponse.json(
+            { error: `Error from LLM provider: ${errorText || llmResponse.statusText}` },
+            { status: llmResponse.status }
+          );
+        }
+      } catch (e) {
+        // If we can't even get the text, return the status text
+        console.error('Failed to get error response:', e);
+        console.log('Returning status text error response');
+        return NextResponse.json(
+          { error: `Error from LLM provider: ${llmResponse.statusText}` },
+          { status: llmResponse.status }
+        );
+      }
     }
 
     // Handle streaming responses
     if (body.stream) {
+      console.log('=== HANDLING STREAMING RESPONSE ===');
       // Set up streaming response
       const encoder = new TextEncoder();
+      console.log('Setting up ReadableStream...');
       const stream = new ReadableStream({
         async start(controller) {
           // Function to send a chunk to the client
@@ -264,18 +354,31 @@ export async function POST(request: NextRequest) {
           }
 
           try {
+            console.log('Starting to stream response from LLM provider...');
             // Stream the response from the LLM provider
             const reader = llmResponse.body?.getReader();
-            if (!reader) throw new Error('Response body is null');
+            if (!reader) {
+              console.error('Response body is null');
+              throw new Error('Response body is null');
+            }
+            console.log('Got reader from response body');
 
             let accumulatedTokens = 0;
 
+            console.log('Starting read loop...');
+            let chunkCount = 0;
             while (true) {
+              console.log(`Reading chunk ${++chunkCount}...`);
               const { done, value } = await reader.read();
-              if (done) break;
+              if (done) {
+                console.log('Read complete (done=true)');
+                break;
+              }
 
               // Forward the chunk to the client
               const chunk = new TextDecoder().decode(value);
+              console.log(`Received chunk ${chunkCount} of length ${chunk.length}`);
+              console.log(`Chunk preview: ${chunk.substring(0, 100)}${chunk.length > 100 ? '...' : ''}`);
               sendChunk(chunk);
 
               // Roughly estimate token count for streaming (this is approximate)
@@ -308,16 +411,20 @@ export async function POST(request: NextRequest) {
             }
 
             // End the stream
+            console.log('Streaming complete, sending [DONE]');
             sendChunk('[DONE]');
             controller.close();
           } catch (error) {
+            console.log('=== ERROR DURING STREAMING ===');
             console.error('Error streaming response:', error);
+            console.log('Sending error to client');
             controller.error(error);
           }
         },
       });
 
       // Return the streaming response
+      console.log('Returning streaming response to client');
       return new NextResponse(stream, {
         headers: {
           'Content-Type': 'text/event-stream',
@@ -326,24 +433,32 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
+      console.log('=== HANDLING NON-STREAMING RESPONSE ===');
       // Handle non-streaming response
+      console.log('Parsing response JSON...');
       const data: ChatCompletionResponse = await llmResponse.json();
+      console.log('Response data:', JSON.stringify(data, null, 2));
 
       // Track token usage
       if (userId) {
+        console.log('Tracking token usage...');
         await trackTokenUsage(
           userId,
           body.model,
           data.usage.prompt_tokens,
           data.usage.completion_tokens
         );
+        console.log('Token usage tracked');
       }
 
       // Return the response
+      console.log('Returning JSON response to client');
       return NextResponse.json(data);
     }
   } catch (error) {
+    console.log('=== FATAL ERROR IN CHAT COMPLETION ===');
     console.error('Error in chat completion:', error);
+    console.log('Error details:', error instanceof Error ? error.stack : 'No stack trace available');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
