@@ -9,15 +9,30 @@ export const createClient = () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async get(name: string) {
-          const cookie = await cookieStore.get(name);
+        get(name: string) {
+          // Use synchronous version for server components
+          const cookie = cookieStore.get(name);
           return cookie?.value;
         },
-        async set(name: string, value: string, options: any) {
-          await cookieStore.set({ name, value, ...options });
+        set(name: string, value: string, options: any) {
+          // In server components, we can only set cookies in Server Actions or Route Handlers
+          // This will be a no-op in regular server components
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch (e) {
+            // Silently fail if we're not in a Server Action or Route Handler
+            console.warn('Cannot set cookie outside of Server Action or Route Handler');
+          }
         },
-        async remove(name: string, options: any) {
-          await cookieStore.set({ name, value: '', ...options });
+        remove(name: string, options: any) {
+          // In server components, we can only remove cookies in Server Actions or Route Handlers
+          // This will be a no-op in regular server components
+          try {
+            cookieStore.set({ name, value: '', ...options });
+          } catch (e) {
+            // Silently fail if we're not in a Server Action or Route Handler
+            console.warn('Cannot remove cookie outside of Server Action or Route Handler');
+          }
         },
       },
     }

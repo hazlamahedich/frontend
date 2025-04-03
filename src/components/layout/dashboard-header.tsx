@@ -1,22 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
 import { Bell, Search, Menu, X, User, LogOut, Settings } from 'lucide-react';
 import { ThemeToggle } from '../../components/ui/theme-toggle';
+import { useSignOut } from '@/lib/supabase/auth-client-actions';
 
 export default function DashboardHeader() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const router = useRouter();
-  const supabase = createClient();
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
-  };
+  // Use the client-side sign out action
+  const handleSignOut = useSignOut();
 
   return (
     <header className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">

@@ -232,10 +232,7 @@ export async function POST(request: NextRequest) {
         console.log('Removed ollama/ prefix, model is now:', requestBody.model);
       }
 
-      // Check if this is a technical SEO task
-      const isTechnicalSEO = body.messages.some(msg =>
-        msg.content && msg.content.includes('technical SEO audit'));
-      console.log('Is this a technical SEO task?', isTechnicalSEO);
+
 
       // Simplify the request body for Ollama
       // Ollama's /api/generate endpoint expects a different format than OpenAI
@@ -361,6 +358,20 @@ export async function POST(request: NextRequest) {
         // Switch to the generate API if we're not using it
         apiUrl = apiUrl.replace('/api/chat', '/api/generate');
         console.log('Switched to Ollama generate API:', apiUrl);
+      }
+
+      // If this is a technical SEO or keyword research task, force the use of Ollama with DeepSeek model
+      const isTechnicalSEO = body.messages.some(msg =>
+        msg.content && msg.content.includes('technical SEO audit'));
+      const isKeywordResearch = body.messages.some(msg =>
+        msg.content && (msg.content.includes('keyword research') || msg.content.includes('analyze keywords')));
+
+      if (isTechnicalSEO || isKeywordResearch) {
+        console.log(`This is a ${isTechnicalSEO ? 'technical SEO' : 'keyword research'} task, forcing use of Ollama with DeepSeek model`);
+        apiUrl = 'http://localhost:11434/api/generate';
+        requestBody.model = 'deepseek-r1:14b';
+        console.log('Updated API URL:', apiUrl);
+        console.log('Updated model:', requestBody.model);
       }
     }
 

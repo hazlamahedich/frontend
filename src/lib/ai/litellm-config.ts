@@ -320,7 +320,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     maxOutputTokens: 4096,
   },
   {
-    id: 'ollama/deepseek-r1:14b',
+    id: 'ollama/deepseek-r1-14b',
     name: 'DeepSeek R1:14B (Ollama)',
     provider: ModelProvider.OLLAMA,
     hosting: ModelHosting.LOCAL,
@@ -329,6 +329,7 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     tasks: [
       TaskType.CONTENT_GENERATION,
       TaskType.TECHNICAL_SEO,
+      TaskType.KEYWORD_ANALYSIS,
       TaskType.CLASSIFICATION,
       TaskType.SUMMARIZATION,
     ],

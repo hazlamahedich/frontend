@@ -2,14 +2,11 @@ import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import {
-  BarChart2,
   ExternalLink,
-  FileText,
-  Globe,
-  Search,
   Settings,
   Zap,
 } from 'lucide-react';
+import ProjectStatsCards from '@/components/dashboard/project-stats-cards';
 
 interface ProjectPageProps {
   params: {
@@ -19,13 +16,13 @@ interface ProjectPageProps {
 
 export async function generateMetadata({ params }: ProjectPageProps) {
   const supabase = createClient();
-  
+
   const { data: project } = await supabase
     .from('projects')
     .select('name')
     .eq('id', params.id)
     .single();
-  
+
   return {
     title: project ? `${project.name} | Surge SEO Platform` : 'Project | Surge SEO Platform',
     description: 'Manage your SEO project',
@@ -35,7 +32,7 @@ export async function generateMetadata({ params }: ProjectPageProps) {
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
-  
+
   // Get project details
   const { data: project } = await supabase
     .from('projects')
@@ -43,23 +40,23 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     .eq('id', params.id)
     .eq('user_id', session?.user?.id)
     .single();
-  
+
   if (!project) {
     notFound();
   }
-  
+
   // Get website details
   const { data: websites } = await supabase
     .from('websites')
     .select('*')
     .eq('project_id', params.id);
-  
+
   // Get keyword count
   const { count: keywordCount } = await supabase
     .from('keywords')
     .select('*', { count: 'exact', head: true })
     .eq('project_id', params.id);
-  
+
   // Get latest audit
   const { data: latestAudit } = await supabase
     .from('audits')
@@ -68,7 +65,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
-  
+
   return (
     <div className="space-y-6">
       <div className="md:flex md:items-center md:justify-between">
@@ -117,161 +114,19 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </Link>
         </div>
       </div>
-      
+
       {project.description && (
         <div className="p-4 bg-gray-50 rounded-md">
           <p className="text-sm text-gray-700">{project.description}</p>
         </div>
       )}
-      
-      <div className="grid grid-cols-1 gap-5 mt-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="overflow-hidden bg-white rounded-lg shadow">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Globe className="w-6 h-6 text-gray-400" />
-              </div>
-              <div className="flex-1 w-0 ml-5">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Website Health
-                  </dt>
-                  <dd className="flex items-center">
-                    <div className="text-lg font-medium text-gray-900">
-                      {latestAudit ? `${Math.round(latestAudit.score)}%` : 'No data'}
-                    </div>
-                    {latestAudit && (
-                      <div className="ml-2">
-                        {latestAudit.score >= 80 ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Good
-                          </span>
-                        ) : latestAudit.score >= 50 ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            Needs Improvement
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            Poor
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-          <div className="px-5 py-3 bg-gray-50">
-            <div className="text-sm">
-              <Link
-                href={`/dashboard/seo/site-audit?projectId=${params.id}`}
-                className="font-medium text-primary-600 hover:text-primary-500"
-              >
-                View details
-              </Link>
-            </div>
-          </div>
-        </div>
 
-        <div className="overflow-hidden bg-white rounded-lg shadow">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Search className="w-6 h-6 text-gray-400" />
-              </div>
-              <div className="flex-1 w-0 ml-5">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Keywords
-                  </dt>
-                  <dd className="flex items-center">
-                    <div className="text-lg font-medium text-gray-900">
-                      {keywordCount || 0}
-                    </div>
-                    <div className="ml-2 text-sm text-gray-500">tracked</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-          <div className="px-5 py-3 bg-gray-50">
-            <div className="text-sm">
-              <Link
-                href={`/dashboard/seo/keyword-research?projectId=${params.id}`}
-                className="font-medium text-primary-600 hover:text-primary-500"
-              >
-                Research keywords
-              </Link>
-            </div>
-          </div>
-        </div>
+      <ProjectStatsCards
+        projectId={params.id}
+        initialKeywordCount={keywordCount || 0}
+        initialLatestAudit={latestAudit}
+      />
 
-        <div className="overflow-hidden bg-white rounded-lg shadow">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <BarChart2 className="w-6 h-6 text-gray-400" />
-              </div>
-              <div className="flex-1 w-0 ml-5">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Rankings
-                  </dt>
-                  <dd className="flex items-center">
-                    <div className="text-lg font-medium text-gray-900">
-                      View
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-          <div className="px-5 py-3 bg-gray-50">
-            <div className="text-sm">
-              <Link
-                href={`/dashboard/seo/rank-tracking?projectId=${params.id}`}
-                className="font-medium text-primary-600 hover:text-primary-500"
-              >
-                Track rankings
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-hidden bg-white rounded-lg shadow">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FileText className="w-6 h-6 text-gray-400" />
-              </div>
-              <div className="flex-1 w-0 ml-5">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Content
-                  </dt>
-                  <dd className="flex items-center">
-                    <div className="text-lg font-medium text-gray-900">
-                      Optimize
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-          <div className="px-5 py-3 bg-gray-50">
-            <div className="text-sm">
-              <Link
-                href={`/dashboard/seo/content-analysis?projectId=${params.id}`}
-                className="font-medium text-primary-600 hover:text-primary-500"
-              >
-                Analyze content
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-      
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="overflow-hidden bg-white rounded-lg shadow">
           <div className="px-4 py-5 sm:px-6">
@@ -283,7 +138,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             </div>
           </div>
         </div>
-        
+
         <div className="overflow-hidden bg-white rounded-lg shadow">
           <div className="px-4 py-5 sm:px-6">
             <h3 className="text-lg font-medium text-gray-900">AI Recommendations</h3>
@@ -315,7 +170,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                   </div>
                 </div>
               </div>
-              
+
               <div className="p-4 bg-green-50 rounded-md">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -341,7 +196,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                   </div>
                 </div>
               </div>
-              
+
               <div className="p-4 bg-purple-50 rounded-md">
                 <div className="flex">
                   <div className="flex-shrink-0">

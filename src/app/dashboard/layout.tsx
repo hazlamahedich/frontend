@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
+import { requireAuth } from '@/lib/supabase/auth-actions';
 import DashboardSidebar from '@/components/layout/dashboard-sidebar';
 import DashboardHeader from '@/components/layout/dashboard-header';
 
@@ -8,13 +7,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Check if the user is authenticated
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    redirect('/auth/login');
-  }
+  // Check if the user is authenticated using server action
+  const session = await requireAuth();
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">

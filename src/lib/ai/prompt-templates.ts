@@ -105,8 +105,9 @@ For each keyword or keyword group:
 - Classify the primary search intent
 - Evaluate the competition level
 - Assess the traffic potential
+- Analyze seasonality (when the keyword is most popular during the year)
+- Identify 3-5 related keywords that could be targeted in the same content
 - Recommend content formats that would best serve the intent
-- Identify related keywords to target in the same content
 - Suggest SERP features to target
 
 Your goal is to provide actionable keyword insights that will drive the content strategy.`,
@@ -213,20 +214,20 @@ export function fillPromptTemplate(
 ): Message[] | null {
   const template = getPromptTemplate(templateId);
   if (!template) return null;
-  
+
   // Replace variables in system prompt
   let systemPrompt = template.systemPrompt;
-  
+
   // Replace variables in user prompt
   let userPrompt = template.userPrompt;
-  
+
   // Replace all variables in both prompts
   for (const [key, value] of Object.entries(variables)) {
     const placeholder = `{{${key}}}`;
     systemPrompt = systemPrompt.replace(new RegExp(placeholder, 'g'), value);
     userPrompt = userPrompt.replace(new RegExp(placeholder, 'g'), value);
   }
-  
+
   // Create messages array
   return [
     { role: 'system', content: systemPrompt },

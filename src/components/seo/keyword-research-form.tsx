@@ -1,10 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { LiteLLMService, Message } from '@/lib/ai/litellm-service';
 import { fillPromptTemplate } from '@/lib/ai/prompt-templates';
-import { ModelTierType, ModelHosting, ModelHostingType, ModelProviderType } from '@/lib/ai/litellm-config';
+import { ModelTierType } from '@/lib/ai/litellm-config';
 
 interface KeywordResearchFormProps {
   userTier: ModelTierType;
@@ -36,21 +34,6 @@ export default function KeywordResearchForm({ userTier }: KeywordResearchFormPro
     setStreamingOutput('');
 
     try {
-      // Get user's model settings
-      const supabase = createClient();
-      const { data: modelSettings } = await supabase
-        .from('user_model_settings')
-        .select('*')
-        .single();
-
-      // Create LiteLLM service instance with user's preferred settings
-      const liteLLM = new LiteLLMService(
-        modelSettings?.api_keys || {},
-        '/api/ai',
-        userTier,
-        (modelSettings?.preferred_hosting as ModelHostingType) || ModelHosting.CLOUD,
-        (modelSettings?.preferred_provider as ModelProviderType)
-      );
 
       // Fill the prompt template
       const messages = fillPromptTemplate('keyword-research', {
@@ -67,16 +50,53 @@ export default function KeywordResearchForm({ userTier }: KeywordResearchFormPro
       // Use streaming for better UX
       let accumulatedText = '';
 
-      await liteLLM.streamChatCompletion(
-        messages,
-        'keyword_analysis',
-        { temperature: 0.7 },
-        (chunk) => {
-          const content = chunk.choices[0]?.delta?.content || '';
-          accumulatedText += content;
-          setStreamingOutput(accumulatedText);
+      // Use the dedicated keyword research API endpoint
+      const response = await fetch('/api/ai/keyword-research', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+          temperature: 0.7,
+          max_tokens: 4096,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body is null');
+      }
+
+      // Process the streaming response
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Convert the chunk to text
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
+
+        for (const line of lines) {
+          try {
+            // Extract the JSON data from the SSE format
+            const jsonStr = line.replace(/^data: /, '').trim();
+            if (jsonStr === '[DONE]') continue;
+
+            const data = JSON.parse(jsonStr);
+            const content = data.response || '';
+            accumulatedText += content;
+            setStreamingOutput(accumulatedText);
+          } catch (error) {
+            console.error('Error parsing chunk:', error);
+          }
         }
-      );
+      }
 
       // Try to parse the JSON response
       try {

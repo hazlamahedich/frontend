@@ -130,6 +130,35 @@ export default function SiteAuditForm({ userTier, websites }: SiteAuditFormProps
     }
   };
 
+  const saveAuditResult = async (websiteId: string, auditResult: AuditResult) => {
+    try {
+      const response = await fetch('/api/audit/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          websiteId,
+          result: auditResult,
+          pagesCrawled: 1, // Default to 1 for now
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error saving audit:', errorData);
+        return false;
+      }
+
+      const data = await response.json();
+      console.log('Audit saved successfully:', data);
+      return true;
+    } catch (error) {
+      console.error('Error saving audit:', error);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -302,6 +331,20 @@ export default function SiteAuditForm({ userTier, websites }: SiteAuditFormProps
       console.log('Error details:', error instanceof Error ? error.message : 'Unknown error');
     } finally {
       console.log('Audit process completed');
+
+      // Save the audit result to the database if we have a valid result and a selected website
+      if (result && !isCustomUrl && selectedWebsite) {
+        console.log('Saving audit result to database...');
+        const saveSuccess = await saveAuditResult(selectedWebsite, result);
+        if (saveSuccess) {
+          console.log('Audit result saved successfully');
+        } else {
+          console.error('Failed to save audit result');
+        }
+      } else {
+        console.log('Not saving audit result: custom URL or no selected website');
+      }
+
       setIsLoading(false);
     }
   };
